@@ -1,0 +1,18 @@
+[
+    {
+        "timestamp": "2026-06-25T12:05:00Z",
+        "node": "router3",
+        "bgp_status": 0,
+        "neighbor": "10.0.0.3",
+        "event": "BGP-5-ADJCHANGE",
+        "severity": "warning"
+    },
+    {
+        "timestamp": "2026-06-25T12:06:00Z",
+        "node": "router4",
+        "bgp_status": 1,
+        "neighbor": "10.0.0.4",
+        "event": "BGP-5-ADJCHANGE",
+        "severity": "info"
+    }
+]
