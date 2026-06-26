@@ -8,6 +8,7 @@ from src.pipeline.collector import Collector
 from src.sources.synthetic import SyntheticSource
 from src.sources.snmp import SNMPSource
 from src.sources.bgp import BGPSource
+from src.sources.influxdb import InfluxDBSource
 from src.logger import setup_logging
 
 # Import Pipeline Stages

@@ -8,9 +8,8 @@ class Config:
     # Source Configuration ('synthetic', 'snmp', or 'bgp')
     # Can be overridden via environment variables
     # Default input URI for auto-detection
-    INPUT_URI = os.getenv('INPUT_URI', '')
-    DATA_SOURCE_TYPE = os.getenv('DATA_SOURCE_TYPE', 'synthetic')
-    
+    INPUT_URI = os.getenv('INPUT_URI', 'influxdb://localhost:8086')
+    DATA_SOURCE_TYPE = os.getenv('DATA_SOURCE_TYPE', 'influxdb')    
     # Paths
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR = os.path.join(BASE_DIR, 'data')
@@ -26,9 +25,16 @@ class Config:
     BGP_INPUT_FORMAT = os.getenv('BGP_INPUT_FORMAT', 'log')
     BGP_OUTPUT_FILE = os.path.join(PROCESSED_DIR, 'bgp_events.csv')
     
-    UNIFIED_OUTPUT_FILE = os.path.join(PROCESSED_DIR, 'unified_telemetry.csv')
+    UNIFIED_OUTPUT_FILE = os.path.join(PROCESSED_DIR, 'processed_telemetry.csv')
     
     ML_DIR = os.path.join(DATA_DIR, 'ml')
+    
+    # InfluxDB Configuration
+    INFLUXDB_URL = os.getenv('INFLUXDB_URL', 'http://localhost:8086')
+    INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', 'dev')
+    INFLUXDB_ORG = os.getenv('INFLUXDB_ORG', 'ps13')
+    INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', 'network_telemetry')
+    INFLUXDB_MEASUREMENT = os.getenv('INFLUXDB_MEASUREMENT', 'network_telemetry')
     
     # -----------------------------------------------------
     # Pipeline Settings

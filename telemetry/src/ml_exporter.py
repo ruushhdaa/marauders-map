@@ -81,15 +81,19 @@ def export_dataset(version: str = "v1.0"):
     output_dir = os.path.join(Config.ML_DIR, version)
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Export CSV
-    csv_path = os.path.join(output_dir, 'dataset.csv')
-    df_ml.to_csv(csv_path, index=False)
-    logger.info(f"Exported CSV: {csv_path}")
+    # 1. Export Full Processed Telemetry (CSV & JSON)
+    csv_processed_path = os.path.join(output_dir, 'processed_telemetry.csv')
+    df.to_csv(csv_processed_path, index=False)
+    logger.info(f"Exported Processed CSV: {csv_processed_path}")
     
-    # 2. Export JSON (records orientation)
-    json_path = os.path.join(output_dir, 'dataset.json')
-    df_ml.to_json(json_path, orient='records', date_format='iso', indent=4)
-    logger.info(f"Exported JSON: {json_path}")
+    json_processed_path = os.path.join(output_dir, 'processed_telemetry.json')
+    df.to_json(json_processed_path, orient='records', date_format='iso', indent=4)
+    logger.info(f"Exported Processed JSON: {json_processed_path}")
+    
+    # 2. Export ML Ready Dataset (CSV)
+    csv_ml_path = os.path.join(output_dir, 'ml_ready_dataset.csv')
+    df_ml.to_csv(csv_ml_path, index=False)
+    logger.info(f"Exported ML Ready CSV: {csv_ml_path}")
     
     # 3. Generate Data Dictionary
     generate_data_dictionary(output_dir)
