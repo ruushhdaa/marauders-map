@@ -47,6 +47,8 @@ const SEEDS: Seed[] = [
   { id: "SVC-VOIP",    label: "VoIP Service",      type: "SERVICE",    site: "HQ",      ip: "10.0.5.1",  x: 350, y: 350, critical: true,  services: ["voip"] },
   { id: "SVC-ERP",     label: "ERP Service",       type: "SERVICE",    site: "HQ",      ip: "10.0.5.2",  x: 500, y: 380, critical: true,  services: ["erp"] },
   { id: "SVC-VIDEO",   label: "Video Service",     type: "SERVICE",    site: "HQ",      ip: "10.0.5.3",  x: 650, y: 350, critical: false, services: ["video"] },
+  { id: "APP-SRV-01",  label: "Core App Server",   type: "SERVICE",    site: "DC1",     ip: "10.0.5.10", x: 300, y: 50,  critical: true,  services: ["app"] },
+  { id: "API-GW-01",   label: "API Gateway",       type: "SERVICE",    site: "DC1",     ip: "10.0.5.11", x: 400, y: 50,  critical: true,  services: ["api"] },
 ];
 
 interface LinkSeed {
@@ -70,6 +72,8 @@ const LINK_SEEDS: LinkSeed[] = [
   { id: "L14", src: "HUB-RTR-01",  dst: "SVC-VOIP",    type: "PHYSICAL", bw: 100,   mpls: false },
   { id: "L15", src: "HUB-RTR-01",  dst: "SVC-ERP",     type: "PHYSICAL", bw: 100,   mpls: false },
   { id: "L16", src: "HUB-RTR-01",  dst: "SVC-VIDEO",   type: "PHYSICAL", bw: 100,   mpls: false },
+  { id: "L17", src: "MPLS-PE-01",  dst: "APP-SRV-01",  type: "PHYSICAL", bw: 1000,  mpls: false },
+  { id: "L18", src: "MPLS-PE-01",  dst: "API-GW-01",   type: "PHYSICAL", bw: 1000,  mpls: false },
 ];
 
 export function buildDemoTopology(): { nodes: TopologyNode[]; links: TopologyLink[] } {

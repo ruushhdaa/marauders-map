@@ -106,4 +106,14 @@ export const getNodeTelemetry = (id: string) =>
 
 export const getHealth = () => api.get("/health").then((r) => r.data);
 
+// ── Faults (Self Healing) ──────────────────────────────────
+export const ingestFault = (targetNode: string, issueType: string) =>
+  api.post("/api/v1/faults/ingest", null, { params: { target_node: targetNode, issue_type: issueType } }).then((r) => r.data);
+export const healFault = (targetNode: string, issueType: string) =>
+  api.post("/api/v1/faults/heal", null, { params: { target_node: targetNode, issue_type: issueType } }).then((r) => r.data);
+
+// ── What-If ──────────────────────────────────────────
+export const runWhatIf = (targetNode: string, issueType: string) =>
+  api.post("/api/simulation/what-if", null, { params: { node_id: targetNode, issue_type: issueType } }).then((r) => r.data);
+
 export default api;

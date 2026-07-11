@@ -23,6 +23,7 @@ from routers.api import (
     blast_router, simulation_router, actions_router,
     copilot_router, rag_router, scenarios_router,
     telemetry_router, ws_router, graph_router,
+    faults_router
 )
 
 logger = structlog.get_logger(__name__)
@@ -181,6 +182,7 @@ app.include_router(copilot_router)
 app.include_router(rag_router)
 app.include_router(scenarios_router)
 app.include_router(telemetry_router)
+app.include_router(faults_router)
 app.include_router(graph_router)
 app.include_router(ws_router)
 

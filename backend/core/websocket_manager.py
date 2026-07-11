@@ -89,3 +89,15 @@ async def broadcast_topology_change(topology: Dict):
 
 async def broadcast_scenario_update(scenario: Dict):
     await manager.broadcast("scenario_update", scenario)
+
+async def broadcast_healing_update(payload: Dict):
+    await manager.broadcast("healing_update", payload)
+
+async def broadcast_blast_radius_clear():
+    await manager.broadcast("blast_radius_clear", {})
+
+async def broadcast_predictions_clear():
+    await manager.broadcast("predictions_clear", {})
+
+async def broadcast_alerts_clear():
+    await manager.broadcast("alerts_clear", {})

@@ -21,6 +21,9 @@ from services.action_ranking.ranker import get_ranker
 from services.copilot.copilot import get_copilot
 from services.rag.rag_engine import get_rag
 from services.fault_injection.injector import get_fault_engine, SCENARIO_CONFIGS
+from services.fault_injection.ingestion import get_fault_ingestion_engine
+from services.fault_injection.what_if import get_what_if_engine
+from services.self_healing.healer import get_self_healing_engine
 from services.telemetry.telemetry_service import get_telemetry_service
 from services.graph.graph_engine import get_graph_engine
 from core.websocket_manager import manager
@@ -228,16 +231,47 @@ async def simulate_action(
     action_type: ActionType,
     current_risk: float = 75.0,
 ):
-    """Simulate a single specific action."""
-    action = SimulationAction(action_type=action_type, target_node=node_id)
-    result = get_simulation_engine().simulate(
-        trigger_node=node_id,
-        failure_type=failure_type,
-        current_risk=current_risk,
-        specific_actions=[action],
-    )
-    return result.model_dump()
+    """Simulate a single action."""
+    twin = get_twin()
+    if node_id not in twin.graph.nodes:
+        raise HTTPException(404, f"Node {node_id} not found")
+    engine = get_simulation_engine()
+    return engine._simulate_action(
+        SimulationAction(action_type=action_type, target_node=node_id),
+        failure_type,
+        current_risk
+    ).model_dump()
 
+@simulation_router.post("/what-if")
+async def run_what_if_simulation(
+    node_id: str,
+    issue_type: str
+):
+    """Run interactive what-if simulation."""
+    engine = get_what_if_engine()
+    return await engine.create_simulation(node_id, issue_type)
+
+# ──────────────────────────────────────────────────────
+# FAULTS ROUTER
+# ──────────────────────────────────────────────────────
+
+faults_router = APIRouter(prefix="/api/v1/faults", tags=["Faults"])
+
+@faults_router.post("/ingest")
+async def ingest_fault(
+    target_node: str,
+    issue_type: str
+):
+    engine = get_fault_ingestion_engine()
+    return await engine.ingest_fault({"target_node": target_node, "issue_type": issue_type})
+
+@faults_router.post("/heal")
+async def heal_fault(
+    target_node: str,
+    issue_type: str
+):
+    engine = get_self_healing_engine()
+    return await engine.execute_healing_plan({"target_node": target_node, "issue_type": issue_type})
 
 # ──────────────────────────────────────────────────────
 # ACTION RANKING ROUTER

@@ -70,6 +70,26 @@ export const SCENARIO_CATALOG: ScenarioDef[] = [
     description:
       "SD-WAN controller firmware upgrade reset QoS templates, demoting VoIP to best-effort class across all tunnels.",
   },
+  {
+    id: "SOFTWARE_BUG",
+    title: "Software Bug",
+    subtitle: "Application crashes unexpectedly",
+    icon: "🐛",
+    color: "#ffaa00",
+    trigger_node: "APP-SRV-01",
+    issue_type: "SOFTWARE_BUG",
+    description: "An unhandled exception in the core application service is causing 100% CPU utilization and dropping requests.",
+  },
+  {
+    id: "API_FAILURE",
+    title: "API Failure",
+    subtitle: "Gateway timeout and latency",
+    icon: "🔌",
+    color: "#ff4444",
+    trigger_node: "API-GW-01",
+    issue_type: "API_FAILURE",
+    description: "The API gateway is experiencing 5000ms latency and 90% error rate due to a bad deployment.",
+  },
 ];
 
 export function scenarioById(id: string): ScenarioDef | undefined {

@@ -8,7 +8,7 @@ import { usePS13Store, getRiskColor } from "@/store";
 import { runSimulation } from "@/lib/api";
 
 export default function SimulationPanel() {
-  const { selectedNode } = usePS13Store();
+  const { selectedNode, whatIfTopology } = usePS13Store();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [failureType, setFailureType] = useState("MPLS_FAILURE");
@@ -80,7 +80,7 @@ export default function SimulationPanel() {
           onClick={simulate}
           disabled={loading}
           whileTap={{ scale: 0.97 }}
-          className="w-full py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-2"
+          className="w-full py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 mb-2"
           style={{
             background: "rgba(87,182,166,0.1)",
             border: "1px solid rgba(87,182,166,0.35)",
@@ -90,6 +90,42 @@ export default function SimulationPanel() {
           {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
           {loading ? "Simulating..." : `Simulate on ${selectedNode?.node_id ?? "HUB-RTR-01"}`}
         </motion.button>
+        
+        <motion.button
+          onClick={async () => {
+            const target = selectedNode?.node_id ?? "HUB-RTR-01";
+            setLoading(true);
+            try {
+              const res = await import("@/lib/api").then(api => api.runWhatIf(target, failureType));
+              usePS13Store.getState().setWhatIfTopology(res.what_if_topology);
+            } catch (e) {
+              console.error(e);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
+          whileTap={{ scale: 0.97 }}
+          className="w-full py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 mb-2"
+          style={{
+            background: "rgba(226,99,112,0.1)",
+            border: "1px solid rgba(226,99,112,0.35)",
+            color: "#e26370",
+          }}
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+          Visualize What-If on Topology
+        </motion.button>
+        
+        {whatIfTopology && (
+          <motion.button
+            onClick={() => usePS13Store.getState().setWhatIfTopology(null)}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-2 rounded-lg text-xs font-mono transition-all flex items-center justify-center gap-2 text-white/50 hover:text-white bg-white/5 hover:bg-white/10"
+          >
+            Clear What-If Mode
+          </motion.button>
+        )}
       </div>
 
       {/* Results */}

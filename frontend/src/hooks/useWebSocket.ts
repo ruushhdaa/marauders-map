@@ -93,6 +93,8 @@ export function useWebSocket() {
         case "scenario_update": {
           if (payload.type === "reset") {
             state.resetScenario();
+          } else if (payload.type === "clear") {
+            state.clearScenario(payload.issue_type);
           } else {
             state.setScenario({
               active: payload.scenario,
@@ -101,6 +103,44 @@ export function useWebSocket() {
               trigger_node: payload.trigger_node ?? null,
               description: payload.description ?? "",
             });
+          }
+          break;
+        }
+
+        case "blast_radius_clear": {
+          state.setBlastRadius(null);
+          break;
+        }
+
+        case "predictions_clear": {
+          state.clearPredictions();
+          break;
+        }
+
+        case "alerts_clear": {
+          state.clearAlerts();
+          break;
+        }
+
+        case "healing_update": {
+          if (payload.status === "completed") {
+            state.setIsHealing(false);
+            // Optionally we can keep the steps so the user sees it's done
+            state.setHealingSteps(payload.steps_executed || []);
+            
+            // Show Recovery Successful notification
+            state.addAlert({
+              id: `recovery-success-${Date.now()}`,
+              node_id: "SYSTEM",
+              risk_score: 0,
+              urgency: "HEALTHY",
+              message: "Recovery Successful",
+              timestamp: new Date().toISOString(),
+              acknowledged: false,
+            });
+          } else if (payload.status === "in_progress") {
+            state.setIsHealing(true);
+            state.setHealingSteps(payload.steps_executed || []);
           }
           break;
         }

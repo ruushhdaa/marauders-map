@@ -6,6 +6,8 @@ import { usePS13Store, LEVELS, getRiskColor } from "@/store";
 import { SCENARIO_CATALOG } from "@/lib/scenarios";
 import { buildAdjacency } from "@/lib/demoTopology";
 
+import { ingestFault, healFault, injectScenario as apiInjectScenario, injectFullScenario as apiInjectFullScenario, resetScenarios } from "@/lib/api";
+
 // Static "top action" per issue type (client-side, no backend needed).
 const TOP_ACTION: Record<string, string> = {
   CONGESTION: "Apply QoS shaping on HUB WAN uplink",
@@ -13,25 +15,57 @@ const TOP_ACTION: Record<string, string> = {
   TUNNEL_DEGRADATION: "Rekey IPSec SA · reroute over MPLS path",
   MPLS_FAILURE: "Rebuild LDP sessions · shift to PE-02 label paths",
   POLICY_DRIFT: "Re-push QoS templates from golden config",
+  SOFTWARE_BUG: "Run application self-healing sequence",
+  API_FAILURE: "Run API gateway self-healing sequence",
 };
 
 export default function ScenarioPanel() {
   const {
     activeScenarios, injectScenario, escalateScenario,
     clearScenario, clearAllScenarios, links,
+    isHealing, healingSteps
   } = usePS13Store();
 
   const adjacency = buildAdjacency(links);
   const activeMap = new Map(activeScenarios.map((s) => [s.type, s]));
 
-  function handleInject(id: string) {
+  async function handleInject(id: string) {
     const def = SCENARIO_CATALOG.find((s) => s.id === id);
     if (!def) return;
+    
+    // For our new application-level faults, call the real backend
+    if (def.id === "SOFTWARE_BUG" || def.id === "API_FAILURE") {
+      // Optimistically register locally so UI knows it's active
+      if (!activeMap.has(id)) {
+         injectScenario({
+          type: def.id,
+          trigger_node: def.trigger_node,
+          issue_type: def.issue_type,
+          step: 4, // fully degraded instantly
+          severity: "CRITICAL",
+          started_at: Date.now(),
+        });
+      }
+
+      try {
+        await ingestFault(def.trigger_node, def.issue_type);
+      } catch (err) {
+        console.error("Failed to ingest fault", err);
+      }
+      return;
+    }
+
     const existing = activeMap.get(id);
     if (existing) {
       escalateScenario(id); // active → escalate one step
+      try {
+        await apiInjectScenario(def.id, existing.step + 1);
+      } catch (err) {
+        console.error("Failed to inject scenario on backend", err);
+      }
       return;
     }
+    
     injectScenario({
       type: def.id,
       trigger_node: def.trigger_node,
@@ -40,11 +74,30 @@ export default function ScenarioPanel() {
       severity: LEVELS[1],
       started_at: Date.now(),
     });
+
+    try {
+      await apiInjectScenario(def.id, 1);
+    } catch (err) {
+      console.error("Failed to inject scenario on backend", err);
+    }
   }
 
-  function handleFull(id: string) {
+  async function handleFull(id: string) {
     const def = SCENARIO_CATALOG.find((s) => s.id === id);
     if (!def) return;
+    
+    // If it's one of the application faults, trigger Self-Healing instead of "Full"
+    if (def.id === "SOFTWARE_BUG" || def.id === "API_FAILURE") {
+      try {
+        await healFault(def.trigger_node, def.issue_type);
+      } catch (err) {
+        console.error("Failed to heal fault", err);
+        // Fallback: clear the scenario if backend is unreachable
+        clearScenario(id);
+      }
+      return;
+    }
+    
     clearScenario(id);
     injectScenario({
       type: def.id,
@@ -54,6 +107,34 @@ export default function ScenarioPanel() {
       severity: LEVELS[4],
       started_at: Date.now(),
     });
+
+    try {
+      await apiInjectFullScenario(def.id);
+    } catch (err) {
+      console.error("Failed to fully inject scenario on backend", err);
+    }
+  }
+
+  async function handleResetAll() {
+    clearAllScenarios();
+    try {
+      await resetScenarios();
+    } catch (err) {
+      console.error("Failed to reset scenarios on backend", err);
+    }
+  }
+
+  async function handleClearScenario(id: string) {
+    clearScenario(id);
+    // Since backend does not support clearing a single legacy scenario, 
+    // we reset all if there are no more active scenarios.
+    if (activeScenarios.length <= 1) {
+      try {
+        await resetScenarios();
+      } catch (err) {
+        console.error("Failed to reset scenarios on backend", err);
+      }
+    }
   }
 
   return (
@@ -73,7 +154,7 @@ export default function ScenarioPanel() {
             </div>
           </div>
           <motion.button
-            onClick={clearAllScenarios}
+            onClick={handleResetAll}
             disabled={activeScenarios.length === 0}
             whileTap={{ scale: 0.95 }}
             className="flex items-center gap-1 text-[10px] font-mono text-white/30 hover:text-white/60 transition-colors px-2 py-1 rounded border border-white/10 hover:border-white/20 disabled:opacity-40"
@@ -128,7 +209,7 @@ export default function ScenarioPanel() {
                     </div>
                     {isActive && (
                       <button
-                        onClick={() => clearScenario(sc.id)}
+                        onClick={() => handleClearScenario(sc.id)}
                         title="Clear this intrusion"
                         className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
                       >
@@ -194,9 +275,37 @@ export default function ScenarioPanel() {
                       className="py-1.5 px-2.5 rounded-md text-[10px] font-mono transition-all"
                       style={{ background: "rgba(226,99,112,0.1)", border: "1px solid rgba(226,99,112,0.25)", color: "#e26370" }}
                     >
-                      Full
+                      {sc.id === "SOFTWARE_BUG" || sc.id === "API_FAILURE" ? "Self-Heal" : "Full"}
                     </motion.button>
                   </div>
+                  
+                  {/* Real-time Healing Steps */}
+                  <AnimatePresence>
+                    {(sc.id === "SOFTWARE_BUG" || sc.id === "API_FAILURE") && isHealing && isActive && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-3 bg-black/20 border border-white/5 rounded p-2"
+                      >
+                        <div className="text-[10px] font-display text-white/70 mb-1 flex items-center gap-1">
+                          <Zap size={10} className="text-blue-400" /> Auto-Recovery in progress...
+                        </div>
+                        <div className="space-y-1">
+                          {healingSteps.map((step, idx) => (
+                            <motion.div 
+                              key={idx}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="text-[9px] font-mono text-white/50 pl-2 border-l border-blue-500/30 py-0.5"
+                            >
+                              {step}
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             );
