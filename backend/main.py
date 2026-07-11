@@ -24,6 +24,8 @@ from routers.api import (
     copilot_router, rag_router, scenarios_router,
     telemetry_router, ws_router, graph_router,
 )
+from routers.network_import_router import router as network_import_router
+from services.network_import.importer import get_importer
 
 logger = structlog.get_logger(__name__)
 
@@ -36,18 +38,25 @@ async def lifespan(app: FastAPI):
     # 1. Initialize database
     try:
         await init_db()
-        logger.info("✅ Database initialized")
+        logger.info("[OK] Database initialized")
     except Exception as e:
         logger.error("Database init failed (non-fatal)", error=str(e))
-
-    # 2. Initialize Digital Twin
+    
+    # 2a. Initialize Network Importer (for fake networks)
+    try:
+        importer = get_importer()
+        logger.info("[OK] Network importer ready")
+    except Exception as e:
+        logger.error("Importer init failed", error=str(e))
+    
+    # 2b. Initialize Digital Twin
     twin = get_twin()
-    logger.info("✅ Network Digital Twin ready", nodes=twin.graph.number_of_nodes())
+    logger.info("[OK] Network Digital Twin ready", nodes=twin.graph.number_of_nodes())
 
     # 3. Initialize baseline telemetry (seed metrics)
     fault_engine = get_fault_engine()
     fault_engine.reset_all()
-    logger.info("✅ Telemetry baseline seeded")
+    logger.info("[OK] Telemetry baseline seeded")
 
     # 4. Initialize RAG knowledge base
     try:
@@ -56,7 +65,7 @@ async def lifespan(app: FastAPI):
         rag.index_all_runbooks()
         # Index sample incidents
         _seed_incidents(rag)
-        logger.info("✅ RAG knowledge base initialized", stats=rag.get_stats())
+        logger.info("[OK] RAG knowledge base initialized", stats=rag.get_stats())
     except Exception as e:
         logger.error("RAG init failed (non-fatal, using fallback)", error=str(e))
 
@@ -67,7 +76,7 @@ async def lifespan(app: FastAPI):
         if not available:
             logger.warning("Ollama not ready. Run: docker exec ps13-ollama ollama pull mistral:7b-instruct")
         else:
-            logger.info("✅ AI Copilot (Ollama) ready", model=copilot._model)
+            logger.info("[OK] AI Copilot (Ollama) ready", model=copilot._model)
     except Exception as e:
         logger.warning("Copilot init failed (rule-based fallback active)", error=str(e))
 
@@ -77,14 +86,14 @@ async def lifespan(app: FastAPI):
     telemetry_task = asyncio.create_task(
         telemetry_svc.run(interval_seconds=settings.telemetry_poll_interval)
     )
-    logger.info("✅ Telemetry service started")
+    logger.info("[OK] Telemetry service started")
 
     # 7. Start background orchestrator
     orchestrator = get_orchestrator()
     orch_task = asyncio.create_task(orchestrator.start())
-    logger.info("✅ Orchestrator started")
+    logger.info("[OK] Orchestrator started")
 
-    logger.info("🚀 PS13 Mission Control is LIVE", port=settings.backend_port)
+    logger.info("PS13 Mission Control is LIVE", port=settings.backend_port)
 
     yield
 
@@ -183,6 +192,7 @@ app.include_router(scenarios_router)
 app.include_router(telemetry_router)
 app.include_router(graph_router)
 app.include_router(ws_router)
+app.include_router(network_import_router)
 
 
 @app.get("/health")

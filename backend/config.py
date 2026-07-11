@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     ollama_host: str = "http://ollama:11434"
     ollama_model: str = "mistral:7b-instruct"
     ollama_fallback_model: str = "phi3:mini"
-    ollama_timeout: int = 120
+    ollama_timeout: int = 5
 
     # Embeddings
     embedding_model: str = "BAAI/bge-small-en-v1.5"

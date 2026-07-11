@@ -8,8 +8,55 @@ import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import structlog
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+try:
+    import chromadb
+    from chromadb.config import Settings as ChromaSettings
+    HAS_CHROMADB = True
+except ImportError:
+    HAS_CHROMADB = False
+    class ChromaSettings:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class MockCollection:
+        def __init__(self, name):
+            self.name = name
+            self.data = []
+
+        def count(self) -> int:
+            return len(self.data)
+
+        def upsert(self, ids, documents, embeddings, metadatas):
+            for id_, doc, emb, meta in zip(ids, documents, embeddings, metadatas):
+                self.data = [d for d in self.data if d["id"] != id_]
+                self.data.append({
+                    "id": id_,
+                    "document": doc,
+                    "embedding": emb,
+                    "metadata": meta
+                })
+
+        def query(self, query_embeddings, n_results, where=None, include=None) -> dict:
+            filtered = self.data
+            if where and "type" in where:
+                filtered = [d for d in filtered if d["metadata"].get("type") == where["type"]]
+            docs_out = []
+            metas_out = []
+            dists_out = []
+            for item in filtered[:n_results]:
+                docs_out.append(item["document"])
+                metas_out.append(item["metadata"])
+                dists_out.append(0.1)
+            return {
+                "documents": [docs_out],
+                "metadatas": [metas_out],
+                "distances": [dists_out]
+            }
+
+    class MockChromaClient:
+        def get_or_create_collection(self, name, metadata=None):
+            return MockCollection(name)
+
 
 logger = structlog.get_logger(__name__)
 
@@ -25,7 +72,7 @@ class RAGEngine:
     """
 
     def __init__(self):
-        self._client: Optional[chromadb.HttpClient] = None
+        self._client: Optional[Any] = None
         self._collection = None
         self._embedder = None
         self._initialized = False
@@ -39,18 +86,22 @@ class RAGEngine:
         chroma_host = os.environ.get("CHROMA_HOST", "chromadb")
         chroma_port = int(os.environ.get("CHROMA_PORT", 8000))
 
-        try:
-            self._client = chromadb.HttpClient(
-                host=chroma_host,
-                port=chroma_port,
-                settings=ChromaSettings(anonymized_telemetry=False),
-            )
-            self._client.heartbeat()
-            logger.info("ChromaDB connected", host=chroma_host)
-        except Exception as e:
-            logger.error("ChromaDB connection failed", error=str(e))
-            # Fallback to in-memory
-            self._client = chromadb.Client()
+        if HAS_CHROMADB:
+            try:
+                self._client = chromadb.HttpClient(
+                    host=chroma_host,
+                    port=chroma_port,
+                    settings=ChromaSettings(anonymized_telemetry=False),
+                )
+                self._client.heartbeat()
+                logger.info("ChromaDB connected", host=chroma_host)
+            except Exception as e:
+                logger.error("ChromaDB connection failed", error=str(e))
+                # Fallback to in-memory
+                self._client = chromadb.Client()
+        else:
+            logger.warning("chromadb not installed, falling back to mock in-memory client")
+            self._client = MockChromaClient()
 
         # Get or create collection
         self._collection = self._client.get_or_create_collection(
