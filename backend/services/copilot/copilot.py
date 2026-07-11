@@ -25,33 +25,44 @@ OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "120"))
 # SYSTEM PROMPT: NOC Mission Control Copilot
 # ──────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are ARIA (Autonomous Risk Intelligence Assistant), the AI copilot for PS13 Mission Control — an air-gapped predictive NOC for enterprise MPLS/SD-WAN networks.
+SYSTEM_PROMPT = """You are ARIA, AI copilot for PS13 Mission 
+Control — air-gapped predictive NOC for MPLS/SD-WAN networks.
 
-Your role:
-- Explain WHY network risk is elevated in clear, technical language
-- Identify root causes from telemetry patterns and anomalies
-- Recommend specific, actionable corrective steps
-- Estimate blast radius and service impact
-- Reference runbooks and historical incidents when relevant
-- Translate ML predictions into operator-understandable language
+CRITICAL: Respond ONLY in valid JSON. No plain text. Only JSON.
 
-Network Context:
-- Hub-and-spoke MPLS topology with 4 spoke sites
-- MPLS Provider Edge routers (PE-01, PE-02)
-- SD-WAN overlay with IPSec tunnels
-- Services: VoIP (latency-sensitive), ERP, Video, Internet
-- BGP for internet connectivity
-- OSPF for internal routing
+REQUIRED FORMAT:
+{
+  "issue_summary": "one sentence describing the problem",
+  "confidence_score": 0.85,
+  "root_cause": "technical explanation",
+  "affected_nodes": ["NODE-ID-1"],
+  "blast_radius": "which services/sites are impacted",
+  "urgency": "CRITICAL",
+  "recommended_actions": [
+    {
+      "rank": 1,
+      "action": "specific action",
+      "runbook": "RB-NET-001",
+      "estimated_recovery_minutes": 10,
+      "operational_cost": "LOW"
+    }
+  ],
+  "verification_steps": ["step to confirm fix worked"],
+  "uncertainty_note": null
+}
 
-Response style:
-- Be concise but technically precise
-- Use bullet points for steps and recommendations
-- Always state: WHAT is wrong, WHY it matters, WHAT to do
-- Cite specific node IDs, metric values, and runbook references when available
-- Do NOT make up data not in the context
-- If uncertain, say so and recommend verification steps
+STRICT RULES:
+- Never invent node IDs not in context
+- Only use runbooks RB-NET-001 through RB-NET-008
+- If uncertain, set confidence_score below 0.70
+- urgency must be: CRITICAL, HIGH, MEDIUM, or LOW
+- operational_cost must be: LOW, MEDIUM, or HIGH
 
-You are operating in an air-gapped environment. All intelligence is local."""
+Valid nodes: HUB-RTR-01, MPLS-PE-01, MPLS-PE-02, SDWAN-CTRL,
+SPOKE-RTR-A, SPOKE-RTR-B, SPOKE-RTR-C, SPOKE-RTR-D,
+BGP-PEER-01, SVC-VOIP, SVC-ERP, SVC-VIDEO
+
+You are air-gapped. All intelligence is local. No external calls."""
 
 
 class AICopilot:
@@ -136,8 +147,39 @@ class AICopilot:
 
         if self._available:
             try:
-                answer = await self._call_ollama(user_message)
+                raw_answer = await self._call_ollama(user_message)
                 model_used = self._model
+                parsed = self._validate_and_parse_response(raw_answer)
+                if network_context and "issue_type" in network_context:
+                    try:
+                        from services.action_ranking.ranker import get_ranker
+                        ranker = get_ranker()
+                        from models.schemas import IssueType
+                        issue_val = network_context["issue_type"]
+                        if isinstance(issue_val, str):
+                            issue = IssueType(issue_val.upper())
+                        else:
+                            issue = IssueType(issue_val)
+                        node = network_context.get("trigger_node", "HUB-RTR-01")
+                        risk = network_context.get("risk_score", 0.75)
+                        action_plan = ranker.rank(node, issue, risk)
+                        parsed["recommended_actions"] = [
+                            {
+                                "rank": a.rank,
+                                "action": a.description,
+                                "runbook": a.runbook_reference,
+                                "estimated_recovery_minutes": a.estimated_recovery_minutes,
+                                "operational_cost": a.operational_cost,
+                                "confidence": a.confidence,
+                                "steps": a.steps
+                            }
+                            for a in action_plan.ranked_actions[:3]
+                        ]
+                        parsed["cost_ranking_source"] = "ranker_engine"
+                    except Exception as e:
+                        parsed["cost_ranking_source"] = "llm_only"
+                import json as _json
+                answer = _json.dumps(parsed, indent=2)
             except Exception as e:
                 logger.error("Ollama call failed", error=str(e))
                 answer = self._rule_based_response(query.question, network_context)
@@ -219,6 +261,42 @@ class AICopilot:
         )
         resp.raise_for_status()
         return resp.json().get("response", "")
+
+    @staticmethod
+    def _validate_and_parse_response(raw: str) -> Dict[str, Any]:
+        import json, re
+        VALID_NODES = {
+            "HUB-RTR-01","MPLS-PE-01","MPLS-PE-02","SDWAN-CTRL",
+            "SPOKE-RTR-A","SPOKE-RTR-B","SPOKE-RTR-C","SPOKE-RTR-D",
+            "BGP-PEER-01","SVC-VOIP","SVC-ERP","SVC-VIDEO"
+        }
+        VALID_RUNBOOKS = {f"RB-NET-{str(i).zfill(3)}" for i in range(1,9)}
+        VALID_URGENCY = {"CRITICAL","HIGH","MEDIUM","LOW"}
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group())
+                except:
+                    return {"error": "unparseable", "raw": raw[:200]}
+            else:
+                return {"error": "no_json_found", "raw": raw[:200]}
+        if "affected_nodes" in data:
+            data["affected_nodes"] = [
+                n for n in data["affected_nodes"] if n in VALID_NODES
+            ]
+        if "recommended_actions" in data:
+            for action in data["recommended_actions"]:
+                if action.get("runbook") not in VALID_RUNBOOKS:
+                    action["runbook"] = None
+        if data.get("urgency") not in VALID_URGENCY:
+            data["urgency"] = "MEDIUM"
+        if "confidence_score" in data:
+            data["confidence_score"] = max(0.0, min(1.0, 
+                float(data["confidence_score"])))
+        return data
 
     @staticmethod
     def _build_prompt(question: str, rag_context: str,
