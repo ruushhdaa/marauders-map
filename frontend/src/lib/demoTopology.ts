@@ -70,6 +70,8 @@ const LINK_SEEDS: LinkSeed[] = [
   { id: "L14", src: "HUB-RTR-01",  dst: "SVC-VOIP",    type: "PHYSICAL", bw: 100,   mpls: false },
   { id: "L15", src: "HUB-RTR-01",  dst: "SVC-ERP",     type: "PHYSICAL", bw: 100,   mpls: false },
   { id: "L16", src: "HUB-RTR-01",  dst: "SVC-VIDEO",   type: "PHYSICAL", bw: 100,   mpls: false },
+  { id: "L17", src: "MPLS-PE-01",  dst: "APP-SRV-01",  type: "PHYSICAL", bw: 1000,  mpls: false },
+  { id: "L18", src: "MPLS-PE-01",  dst: "API-GW-01",   type: "PHYSICAL", bw: 1000,  mpls: false },
 ];
 
 export function buildDemoTopology(): { nodes: TopologyNode[]; links: TopologyLink[] } {

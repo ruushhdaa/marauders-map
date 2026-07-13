@@ -16,7 +16,11 @@ const nodeTypes = { networkNode: NetworkNode };
 const edgeTypes = { networkEdge: NetworkEdge };
 
 export default function NetworkCanvas() {
-  const { nodes: storeNodes, links: storeLinks, selectedNode, setSelectedNode } = usePS13Store();
+  const { nodes: realNodes, links: realLinks, selectedNode, setSelectedNode, whatIfTopology } = usePS13Store();
+  
+  const storeNodes = whatIfTopology ? whatIfTopology.nodes : realNodes;
+  const storeLinks = whatIfTopology ? whatIfTopology.links : realLinks;
+  
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -135,6 +139,21 @@ export default function NetworkCanvas() {
           </motion.div>
         </div>
       )}
+
+      {/* What-If Mode Indicator */}
+      <AnimatePresence>
+        {whatIfTopology && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#e26370]/10 border border-[#e26370]/30 text-[#e26370] px-4 py-2 rounded-full text-xs font-mono font-bold flex items-center gap-2 pointer-events-none z-50 backdrop-blur-sm shadow-[0_0_15px_rgba(226,99,112,0.15)]"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#e26370] animate-pulse" />
+            WHAT-IF SIMULATION MODE
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

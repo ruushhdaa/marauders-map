@@ -159,6 +159,14 @@ class Orchestrator:
         if predictions_fired > 0:
             logger.info("Predictions broadcast", count=predictions_fired)
 
+    def clear_alerts(self, node_ids: List[str] = None):
+        """Clear the internal alert state for specific nodes or all nodes."""
+        if node_ids:
+            for node_id in node_ids:
+                self._alerted_nodes.pop(node_id, None)
+        else:
+            self._alerted_nodes.clear()
+        logger.info("Alerts state cleared", node_ids=node_ids)
 
 _orchestrator: Orchestrator = None
 

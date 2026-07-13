@@ -109,6 +109,36 @@ SCENARIO_CONFIGS = {
             (4,  "SPOKE-RTR-C", {"qos_drop_rate": 8.0, "latency_ms": 55}),
         ],
     },
+
+    ScenarioType.SOFTWARE_BUG: {
+        "trigger_node": "APP-SRV-01",
+        "issue_type": IssueType.SOFTWARE_BUG,
+        "description": "Software Bug — application crashes unexpectedly causing 100% CPU",
+        "lead_time_minutes": 10,
+        "root_cause": "An unhandled exception in the core application service is causing resource exhaustion.",
+        "metric_progression": [
+            (0,  "APP-SRV-01",  {"cpu_utilization": 40, "error_rate": 0.5}),
+            (1,  "APP-SRV-01",  {"cpu_utilization": 60, "error_rate": 2.0}),
+            (2,  "APP-SRV-01",  {"cpu_utilization": 85, "error_rate": 5.0}),
+            (3,  "APP-SRV-01",  {"cpu_utilization": 95, "error_rate": 15.0}),
+            (4,  "APP-SRV-01",  {"cpu_utilization": 100, "error_rate": 45.0, "latency_ms": 150}),
+        ],
+    },
+
+    ScenarioType.API_FAILURE: {
+        "trigger_node": "API-GW-01",
+        "issue_type": IssueType.API_FAILURE,
+        "description": "API Failure — Gateway timeout and latency",
+        "lead_time_minutes": 5,
+        "root_cause": "The API gateway is experiencing severe latency due to a bad deployment.",
+        "metric_progression": [
+            (0,  "API-GW-01",  {"error_rate": 1.0, "latency_ms": 50}),
+            (1,  "API-GW-01",  {"error_rate": 5.0, "latency_ms": 200}),
+            (2,  "API-GW-01",  {"error_rate": 15.0, "latency_ms": 800}),
+            (3,  "API-GW-01",  {"error_rate": 40.0, "latency_ms": 2500}),
+            (4,  "API-GW-01",  {"error_rate": 90.0, "latency_ms": 5000}),
+        ],
+    },
 }
 
 
@@ -172,6 +202,59 @@ class FaultInjectionEngine:
     def inject_full_scenario(self, scenario_type: ScenarioType) -> Dict:
         """Jump directly to maximum severity (step 4)."""
         return self.inject_scenario(scenario_type, step=4)
+
+    def recover_scenario(self, issue_type_str: str, target_node: str):
+        """Restore baseline metrics for all nodes involved in the given scenario."""
+        # Find matching scenario config
+        matching_scenario = None
+        for s_type, config in SCENARIO_CONFIGS.items():
+            if config["issue_type"].value == issue_type_str and config["trigger_node"] == target_node:
+                matching_scenario = s_type
+                break
+
+        if not matching_scenario:
+            logger.warning("Could not find matching scenario for recovery", issue=issue_type_str, target=target_node)
+            return
+
+        config = SCENARIO_CONFIGS[matching_scenario]
+        twin = get_twin()
+        
+        # Collect all nodes affected by this scenario
+        affected_nodes = set([node_id for _, node_id, _ in config["metric_progression"]])
+        
+        # Reset those nodes to baseline
+        for node_id in affected_nodes:
+            metrics = {
+                "cpu_utilization": random.uniform(15, 30),
+                "memory_utilization": random.uniform(30, 50),
+                "bandwidth_utilization": random.uniform(10, 25),
+                "packet_loss": 0.0,
+                "latency_ms": random.uniform(2, 8),
+                "jitter_ms": random.uniform(0.5, 2),
+                "error_rate": 0.0,
+                "qos_drop_rate": 0.0,
+                "risk_score": 0.0,
+            }
+            if "BGP" in node_id:
+                metrics["bgp_prefixes"] = 10000
+            if "PE" in node_id:
+                metrics["mpls_label_count"] = 5000
+            if "SPOKE" in node_id:
+                metrics["tunnel_uptime"] = 99.9
+            
+            # Preserve baseline risk score if any
+            if node_id in twin.node_metrics:
+                twin.node_metrics[node_id].update(metrics)
+            else:
+                twin.node_metrics[node_id] = metrics
+                
+            twin.fault_state[node_id] = False
+
+        if self._active_scenario == matching_scenario:
+            self._active_scenario = None
+            self._scenario_step = 0
+            
+        logger.info("Scenario recovered, metrics restored to baseline", scenario=matching_scenario.value)
 
     def reset_all(self):
         """Reset digital twin to baseline metrics."""

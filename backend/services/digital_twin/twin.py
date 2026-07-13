@@ -36,6 +36,8 @@ SAMPLE_TOPOLOGY_NODES = [
     {"node_id": "SVC-VOIP",    "label": "VoIP Service",     "type": NodeType.SERVICE,   "site": "HQ",      "ip": "10.0.5.1",  "x": 350, "y": 350, "critical": True,  "services": ["voip"]},
     {"node_id": "SVC-ERP",     "label": "ERP Service",      "type": NodeType.SERVICE,   "site": "HQ",      "ip": "10.0.5.2",  "x": 500, "y": 380, "critical": True,  "services": ["erp"]},
     {"node_id": "SVC-VIDEO",   "label": "Video Service",    "type": NodeType.SERVICE,   "site": "HQ",      "ip": "10.0.5.3",  "x": 650, "y": 350, "critical": False, "services": ["video"]},
+    {"node_id": "APP-SRV-01",  "label": "Core App Server",  "type": NodeType.SERVICE,   "site": "DC1",     "ip": "10.0.5.10", "x": 300, "y": 50,  "critical": True,  "services": ["app"]},
+    {"node_id": "API-GW-01",   "label": "API Gateway",      "type": NodeType.SERVICE,   "site": "DC1",     "ip": "10.0.5.11", "x": 400, "y": 50,  "critical": True,  "services": ["api"]},
 ]
 
 SAMPLE_TOPOLOGY_LINKS = [
@@ -55,6 +57,8 @@ SAMPLE_TOPOLOGY_LINKS = [
     {"link_id": "L14", "src": "HUB-RTR-01",  "dst": "SVC-VOIP",    "type": LinkType.PHYSICAL, "bw": 100, "mpls": False},
     {"link_id": "L15", "src": "HUB-RTR-01",  "dst": "SVC-ERP",     "type": LinkType.PHYSICAL, "bw": 100, "mpls": False},
     {"link_id": "L16", "src": "HUB-RTR-01",  "dst": "SVC-VIDEO",   "type": LinkType.PHYSICAL, "bw": 100, "mpls": False},
+    {"link_id": "L17", "src": "MPLS-PE-01",  "dst": "APP-SRV-01",  "type": LinkType.PHYSICAL, "bw": 1000, "mpls": False},
+    {"link_id": "L18", "src": "MPLS-PE-01",  "dst": "API-GW-01",   "type": LinkType.PHYSICAL, "bw": 1000, "mpls": False},
 ]
 
 # Users per site (for blast radius user count)

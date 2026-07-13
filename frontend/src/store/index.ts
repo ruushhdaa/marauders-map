@@ -190,6 +190,16 @@ interface PS13Store {
   simMode: boolean;                                    // true = front-end sim drives data
   setSimMode: (on: boolean) => void;
 
+  // Real-time Self Healing
+  isHealing: boolean;
+  healingSteps: string[];
+  setIsHealing: (isHealing: boolean) => void;
+  setHealingSteps: (steps: string[]) => void;
+
+  // What-If Simulation
+  whatIfTopology: { nodes: TopologyNode[], links: TopologyLink[] } | null;
+  setWhatIfTopology: (topo: { nodes: TopologyNode[], links: TopologyLink[] } | null) => void;
+
   // UI
   activePanel: "network" | "copilot" | "blast" | "simulation" | "scenarios";
   setActivePanel: (panel: PS13Store["activePanel"]) => void;
@@ -318,15 +328,25 @@ export const usePS13Store = create<PS13Store>()(
             : a
         ),
       })),
-    clearScenario: (type) =>
+    clearScenario: (identifier) =>
       set((state) => ({
-        activeScenarios: state.activeScenarios.filter((a) => a.type !== type),
+        activeScenarios: state.activeScenarios.filter((a) => a.type !== identifier && a.issue_type !== identifier),
       })),
     clearAllScenarios: () => set({ activeScenarios: [] }),
 
-    // Client-side simulation
+    // Client-side simulation control
     simMode: false,
     setSimMode: (on) => set({ simMode: on }),
+
+    // Real-time Self Healing
+    isHealing: false,
+    healingSteps: [],
+    setIsHealing: (isHealing) => set({ isHealing }),
+    setHealingSteps: (steps) => set({ healingSteps: steps }),
+
+    // What-If Simulation
+    whatIfTopology: null,
+    setWhatIfTopology: (whatIfTopology) => set({ whatIfTopology }),
 
     // UI
     activePanel: "network",
