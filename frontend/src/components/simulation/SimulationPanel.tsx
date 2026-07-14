@@ -13,6 +13,8 @@ export default function SimulationPanel() {
   const [result, setResult] = useState<any>(null);
   const [failureType, setFailureType] = useState("MPLS_FAILURE");
   const [currentRisk, setCurrentRisk] = useState(75);
+  const addAppliedRemediation = usePS13Store((s) => s.addAppliedRemediation);
+  const [applied, setApplied] = useState(false);
 
   async function simulate() {
     const target = selectedNode?.node_id ?? "HUB-RTR-01";
@@ -153,9 +155,30 @@ export default function SimulationPanel() {
                 <div className="text-sm font-display font-bold text-white">
                   {result.recommended_action.action_type.replace(/_/g, " ")}
                 </div>
-                <div className="text-[10px] text-white/40 font-mono mt-0.5">
+                <div className="text-[10px] text-white/40 font-mono mt-0.5 mb-2">
                   Target: {result.recommended_action.target_node}
                 </div>
+                <button
+                  onClick={() => {
+                    addAppliedRemediation({
+                      node_id: result.recommended_action.target_node,
+                      action_type: result.recommended_action.action_type,
+                    });
+                    setApplied(true);
+                  }}
+                  disabled={applied}
+                  className="w-full flex items-center justify-center gap-2 py-1.5 rounded bg-acid/10 hover:bg-acid/20 text-acid border border-acid/30 text-xs font-mono font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {applied ? (
+                    <>
+                      <CheckCircle size={12} /> Applied
+                    </>
+                  ) : (
+                    <>
+                      <Play size={12} /> Execute Action
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Risk Projection Chart */}

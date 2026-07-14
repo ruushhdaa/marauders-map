@@ -27,6 +27,7 @@ from services.self_healing.healer import get_self_healing_engine
 from services.telemetry.telemetry_service import get_telemetry_service
 from services.graph.graph_engine import get_graph_engine
 from core.websocket_manager import manager
+from routers.report import report_router
 
 logger = structlog.get_logger(__name__)
 
@@ -588,3 +589,10 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error("WebSocket error", error=str(e))
         await manager.disconnect(websocket)
+
+# ──────────────────────────────────────────────────────
+# REPORT ROUTER
+# ──────────────────────────────────────────────────────
+# We register it at the end to keep API modular.
+# Actually, wait, it's better to just expose the report_router itself or 
+# maybe the caller just registers it in main.py. Let's see how they are registered.

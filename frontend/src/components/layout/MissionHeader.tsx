@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Satellite, AlertTriangle, Activity, Radio, Lock, PanelLeft, PanelRight, Home } from "lucide-react";
+import { Brain, Activity, Radio, AlertTriangle, ShieldAlert, FileText, Satellite, Menu, Home, PanelLeft, Lock, PanelRight } from "lucide-react";
 import { usePS13Store, getRiskColor, scoreToLevel } from "@/store";
+import { generateAndPrintReport } from "@/lib/pdfReport";
 
 interface MissionHeaderProps {
   connected: boolean;
@@ -158,7 +159,16 @@ export default function MissionHeader({ connected }: MissionHeaderProps) {
       </div>
 
       {/* ── Right: Status ── */}
-      <div className="flex items-center gap-4 w-72 justify-end flex-shrink-0">
+      <div className="flex items-center gap-4 w-96 justify-end flex-shrink-0">
+        <motion.button
+          onClick={() => generateAndPrintReport()}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Generate PDF Report"
+          className="flex items-center gap-2 px-3 py-1.5 rounded bg-plasma/10 border border-plasma/30 hover:bg-plasma/20 transition-colors text-plasma text-[10px] font-mono font-bold uppercase tracking-widest"
+        >
+          <FileText size={14} /> Report
+        </motion.button>
         <motion.button
           onClick={() => setShowLanding(true)}
           whileHover={{ scale: 1.08 }}

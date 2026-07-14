@@ -25,6 +25,7 @@ from routers.api import (
     telemetry_router, ws_router, graph_router,
     faults_router
 )
+from routers.report import report_router
 
 logger = structlog.get_logger(__name__)
 
@@ -185,7 +186,7 @@ app.include_router(telemetry_router)
 app.include_router(faults_router)
 app.include_router(graph_router)
 app.include_router(ws_router)
-
+app.include_router(report_router)
 
 @app.get("/health")
 async def health():

@@ -67,6 +67,13 @@ export interface Prediction {
   timestamp: string;
 }
 
+export interface AppliedRemediation {
+  id: string;
+  node_id: string;
+  action_type: string;
+  timestamp: string;
+}
+
 export interface RiskScore {
   node_id: string;
   risk_score: number;
@@ -155,6 +162,11 @@ interface PS13Store {
   predictions: Prediction[];
   addPrediction: (pred: Prediction) => void;
   clearPredictions: () => void;
+
+  // Applied Remediations
+  appliedRemediations: AppliedRemediation[];
+  addAppliedRemediation: (remediation: Omit<AppliedRemediation, "id" | "timestamp">) => void;
+  clearAppliedRemediations: () => void;
 
   // Alerts
   alerts: Alert[];
@@ -272,6 +284,21 @@ export const usePS13Store = create<PS13Store>()(
     // Blast Radius
     blastRadius: null,
     setBlastRadius: (br) => set({ blastRadius: br }),
+
+    // Applied Remediations
+    appliedRemediations: [],
+    addAppliedRemediation: (remediation) =>
+      set((state) => ({
+        appliedRemediations: [
+          ...state.appliedRemediations,
+          {
+            ...remediation,
+            id: Math.random().toString(36).substring(2, 9),
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      })),
+    clearAppliedRemediations: () => set({ appliedRemediations: [] }),
 
     // Copilot
     copilotMessages: [],
